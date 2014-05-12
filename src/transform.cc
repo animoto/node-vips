@@ -253,7 +253,7 @@ int DoTransform(int cols, int rows, bool crop_to_size,
   }
 
   string imgformat = VIPS_OBJECT_CLASS(format)->nickname;
-  if (imgformat != "jpeg" && imgformat != "png" && imgformat != "gif" && imgformat != "tiff" && imgformat != "magick") {
+  if (imgformat != "jpeg" && imgformat != "png" && imgformat != "gif" && imgformat != "tiff") {
     err_msg->assign("unsupported image format ");
     err_msg->append(imgformat);
     return -1;
