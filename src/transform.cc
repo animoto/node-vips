@@ -37,7 +37,6 @@
 #include <vector>
 
 #include <vips/vips.h>
-#include <exiv2/exiv2.hpp>
 
 #include "transform.h"
 
@@ -138,22 +137,6 @@ static int GetEXIFRotationNeeded(VipsImage *image, string *err) {
       fprintf(stderr, "unexpected orientation value %d\n", orientation);
     }
     return 0;
-  }
-}
-
-// Write a new value to the EXIF orientation tag for the image in 'path'.
-// Return 0 on success.
-static int WriteEXIFOrientation(const string& path, uint16_t orientation) {
-  try {
-    Exiv2::Image::AutoPtr image = Exiv2::ImageFactory::open(path);
-    assert(image.get() != 0);
-    image->readMetadata();
-    image->exifData()[kOrientationTag] = orientation;
-    image->writeMetadata();
-    return 0;
-  } catch (Exiv2::Error& e) {
-    //printf("exiv2 error writing orientation: %s\n", e.what());
-    return -1;
   }
 }
 
@@ -333,14 +316,6 @@ int DoTransform(int cols, int rows, bool crop_to_size,
     return -1;
   }
 
-  // Write new EXIF orientation.
-  if (auto_orient && rotate_degrees > 0) {
-    if (WriteEXIFOrientation(dst_path, 1 /* orientation */) < 0) {
-      err_msg->assign("failed to write new EXIF orientation");
-      return -1;
-    }
-  }
-
   if (new_width != NULL) *new_width = img->Xsize;
   if (new_height != NULL) *new_height = img->Ysize;
 
@@ -349,10 +324,6 @@ int DoTransform(int cols, int rows, bool crop_to_size,
 
 void InitTransform(const char* argv0) {
   assert(vips_init(argv0) == 0);
-
-  // Need to initialize XmpParser before any threads.
-  // TODO(walt): when we switch to a newer version of libexiv2, provide a mutex.
-  Exiv2::XmpParser::initialize();
 }
 
 int PNGPixel(unsigned char red, unsigned char green, unsigned char blue,
