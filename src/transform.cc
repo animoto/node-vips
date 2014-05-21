@@ -85,41 +85,27 @@ static void SetFromVipsError(string* out, const char* msg) {
 
 // Read EXIF data for image in 'path' and return the rotation needed to turn
 // it right side up.  Return < 0 upon error, and fill in 'err'.
-static int GetEXIFRotationNeeded(const string& path, string* err) {
+static int GetEXIFRotationNeeded(const VipsImage *image) {
   int orientation = 0;
   try {
-    Exiv2::Image::AutoPtr image = Exiv2::ImageFactory::open(path);
-    assert(image.get() != 0);
-    image->readMetadata();
-    Exiv2::ExifData &ed = image->exifData();
-    Exiv2::ExifData::const_iterator it =
-      ed.findKey(Exiv2::ExifKey(kOrientationTag));
-    if (it != ed.end() && it->count() == 1) {
-      orientation = it->toLong();
-    } else if (it != ed.end()) {
-      fprintf(stderr, "bogus orientation tag count %ld for %s\n",
-              it->count(), path.c_str());
-      return 0;
-    } else {
-      return 0;
-    }
-  } catch (Exiv2::Error& e) {
-    err->assign("exiv2 error");
+    orientation = get_angle(image);
+  } catch (exception& e) {
+    err->assign("Error calling get_angle");
     return -1;
   }
 
   // We only expect values of 1, 3, 6, 8, see
   // http://www.impulseadventure.com/photo/exif-orientation.html
   switch (orientation) {
-  case 1:    return 0;
-  case 3:    return 180;
-  case 6:    return 90;
-  case 8:    return 270;
+  case 0:    return 0;
+  case 1:    return 90;
+  case 2:    return 180;
+  case 3:    return 270;
   default:
     // Don't error out on bogus values, just assume no rotation needed.
     if (DEBUG) {
-      fprintf(stderr, "unexpected orientation value %d for %s\n",
-              orientation, path.c_str());
+      fprintf(stderr, "unexpected orientation value %d\n",
+              orientation;
     }
     return 0;
   }
@@ -259,21 +245,6 @@ int DoTransform(int cols, int rows, bool crop_to_size,
     return -1;
   }
 
-  // If auto-orienting, find how much we need to rotate.
-  if (auto_orient) {
-    int r = GetEXIFRotationNeeded(src_path.c_str(), err_msg);
-    if (r < 0) {
-      return -1;
-    }
-    rotate_degrees = r;
-  }
-
-  if (rotate_degrees != 0 && rotate_degrees != 90 &&
-      rotate_degrees != 180 && rotate_degrees != 270) {
-    err_msg->assign("illegal rotate_degrees");
-    return -1;
-  }
-
   // Open the input and output images.
   VipsImage *in, *out;
   {
@@ -291,6 +262,20 @@ int DoTransform(int cols, int rows, bool crop_to_size,
     }
 
     vips_object_local(in, out);
+  }
+
+  if(auto_orient){
+    int r = GetEXIFRotationNeeded(in);
+    if(r < 0) {
+      return -1;
+    }
+    rotate_degrees = r;
+  }
+
+  if (rotate_degrees != 0 && rotate_degrees != 90 &&
+      rotate_degrees != 180 && rotate_degrees != 270) {
+    err_msg->assign("illegal rotate_degrees");
+    return -1;
   }
 
   // Resize and/or crop.
