@@ -42,6 +42,7 @@
 #include "transform.h"
 
 #define DEBUG 0
+#define ORIENTATION ("exif-ifd0-Orientation")
 
 using std::string;
 
@@ -83,13 +84,43 @@ static void SetFromVipsError(string* out, const char* msg) {
   vips_error_clear();
 }
 
+//ported from libvips/tools/vipsthumbnail.c
+static VipsAngle
+get_angle( VipsImage *im )
+{
+	VipsAngle angle;
+	const char *orientation;
+
+	angle = VIPS_ANGLE_0;
+
+	if( vips_image_get_typeof( im, ORIENTATION ) &&
+		!vips_image_get_string( im, ORIENTATION, &orientation ) ) {
+		if( vips_isprefix( "6", orientation ) )
+			angle = VIPS_ANGLE_90;
+		else if( vips_isprefix( "8", orientation ) )
+			angle = VIPS_ANGLE_270;
+		else if( vips_isprefix( "3", orientation ) )
+			angle = VIPS_ANGLE_180;
+
+		/* Other values do rotate + mirror, don't bother handling them
+		 * though, how common can mirroring be.
+		 *
+		 * See:
+		 *
+		 * http://www.80sidea.com/archives/2316
+		 */
+	}
+
+	return( angle );
+}
+
 // Read EXIF data for image in 'path' and return the rotation needed to turn
 // it right side up.  Return < 0 upon error, and fill in 'err'.
-static int GetEXIFRotationNeeded(const VipsImage *image) {
+static int GetEXIFRotationNeeded(VipsImage *image, string *err) {
   int orientation = 0;
   try {
     orientation = get_angle(image);
-  } catch (exception& e) {
+  } catch (std::exception &e) {
     err->assign("Error calling get_angle");
     return -1;
   }
@@ -104,8 +135,7 @@ static int GetEXIFRotationNeeded(const VipsImage *image) {
   default:
     // Don't error out on bogus values, just assume no rotation needed.
     if (DEBUG) {
-      fprintf(stderr, "unexpected orientation value %d\n",
-              orientation;
+      fprintf(stderr, "unexpected orientation value %d\n", orientation);
     }
     return 0;
   }
@@ -265,7 +295,7 @@ int DoTransform(int cols, int rows, bool crop_to_size,
   }
 
   if(auto_orient){
-    int r = GetEXIFRotationNeeded(in);
+    int r = GetEXIFRotationNeeded(in, err_msg);
     if(r < 0) {
       return -1;
     }
