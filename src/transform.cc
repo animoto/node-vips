@@ -88,7 +88,7 @@ static int
 get_angle( VipsImage *im )
 {
 	int angle;
-	const char *orientation;
+	char *orientation;
 
 	angle = 0;
 
