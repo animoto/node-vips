@@ -84,22 +84,22 @@ static void SetFromVipsError(string* out, const char* msg) {
 }
 
 //ported from libvips/tools/vipsthumbnail.c
-static VipsAngle
+static int
 get_angle( VipsImage *im )
 {
-	VipsAngle angle;
+	int angle;
 	const char *orientation;
 
-	angle = VIPS_ANGLE_0;
+	angle = 0;
 
 	if( vips_image_get_typeof( im, ORIENTATION ) &&
 		!vips_image_get_string( im, ORIENTATION, &orientation ) ) {
 		if( vips_isprefix( "6", orientation ) )
-			angle = VIPS_ANGLE_90;
+			angle = 1;
 		else if( vips_isprefix( "8", orientation ) )
-			angle = VIPS_ANGLE_270;
+			angle = 3;
 		else if( vips_isprefix( "3", orientation ) )
-			angle = VIPS_ANGLE_180;
+			angle = 2;
 
 		/* Other values do rotate + mirror, don't bother handling them
 		 * though, how common can mirroring be.
